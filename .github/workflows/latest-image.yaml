@@ -1,0 +1,49 @@
+---
+name: Publish latest container image
+
+on:
+  push:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-latest-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Build and push latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      registry:
+        image: registry:3
+        ports:
+          - 5000:5000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Prepare Nix
+        uses: ./.github/actions/prepare-nix
+        with:
+          nativelink_attic_token: ""
+
+      - name: Build, test, and push image
+        uses: ./.github/actions/test-and-upload-image
+        with:
+          image: nativelink
+          multi-arch: true
+          components: nativelink-image-for-x64 nativelink-image-for-aarch64
+          tag: latest
+          force-push: true
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tear down Nix
+        if: always()
+        uses: ./.github/actions/end-nix
+        with:
+          nativelink_attic_token: ""
